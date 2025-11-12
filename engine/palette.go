@@ -102,7 +102,7 @@ func (p *Palette) IndexOf(c color.Color) ColorIndex {
 	}
 	tp := make(color.Palette, 16)
 	for i := range 16 {
-		tp[i] = p[256+i]
+		tp[i] = p[i]
 	}
 	return ColorIndex(tp.Index(c))
 }

@@ -39,7 +39,8 @@ func DecodeBuffer(r io.Reader, p *Palette) (*Buffer, error) {
 	for y := range max.Y {
 		for x := range max.X {
 			c := img.At(x, y)
-			buf.Pixels[y*16+x] = buf.Palette.IndexOf(c)
+			i := buf.Palette.IndexOf(c)
+			buf.Pixels[y*max.X+x] = i
 		}
 	}
 	return buf, nil
@@ -85,4 +86,63 @@ func (b *Buffer) SetPixel(x, y int, c ColorIndex) {
 		return
 	}
 	b.Pixels[y*b.Width+x] = c
+}
+
+// Draw copies all non-transparent pixels from src into this buffer.
+func (b *Buffer) Draw(src *Buffer, dx, dy, sx, sy, w, h int) {
+	for oy := range h {
+		idy := dy + oy
+		if idy < 0 || idy >= b.Height {
+			continue
+		}
+		isy := sy + oy
+		if isy < 0 || isy >= src.Height {
+			continue
+		}
+		for ox := range w {
+			idx := dx + ox
+			if idx < 0 || idx >= b.Width {
+				continue
+			}
+			isx := sx + ox
+			if isx < 0 || isx >= src.Width {
+				continue
+			}
+			c := src.Pixels[isy*src.Width+isx]
+			if c == ColorIndexTransparent {
+				continue
+			}
+			b.Pixels[idy*b.Width+idx] = c
+		}
+	}
+}
+
+// DrawMask places pixel p at every location a non-transparent pixel appears in
+// src. This is useful for rendering fonts and masks for example.
+func (b *Buffer) DrawMask(src *Buffer, dx, dy, sx, sy, w, h int, p ColorIndex) {
+	for oy := range h {
+		idy := dy + oy
+		if idy < 0 || idy >= b.Height {
+			continue
+		}
+		isy := sy + oy
+		if isy < 0 || isy >= src.Height {
+			continue
+		}
+		for ox := range w {
+			idx := dx + ox
+			if idx < 0 || idx >= b.Width {
+				continue
+			}
+			isx := sx + ox
+			if isx < 0 || isx >= src.Width {
+				continue
+			}
+			c := src.Pixels[isy*src.Width+isx]
+			if c == ColorIndexTransparent {
+				continue
+			}
+			b.Pixels[idy*b.Width+idx] = p
+		}
+	}
 }

@@ -13,6 +13,26 @@ import (
 // ColorIndex represents a color from the palette
 type ColorIndex uint16
 
+// Color names for the default palette
+const (
+	DefaultBlack ColorIndex = iota
+	DefaultPurple
+	DefaultRed
+	DefaultOrange
+	DefaultYellow
+	DefaultLime
+	DefaultGreen
+	DefaultEvergreen
+	DefaultDarkBlue
+	DefaultBlue
+	DefaultLightBlue
+	DefaultCyan
+	DefaultWhite
+	DefaultLightGray
+	DefaultGray
+	DefaultDarkGray
+)
+
 // ColorIndexTransparent is the transparent value for ColorIndex.
 const ColorIndexTransparent ColorIndex = 0xFFFF
 
