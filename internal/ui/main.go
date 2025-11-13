@@ -26,19 +26,18 @@ type Main struct {
 }
 
 // NewMain returns a new Main object ready for use.
-func NewMain(title string) (*Main, error) {
-	var err error
+func NewMain(title string) *Main {
 	ret := &Main{
 		Title:     title,
 		z:         4,
 		backBytes: make([]byte, ScreenWidth*ScreenHeight*4),
 		backFrame: ebiten.NewImage(ScreenWidth, ScreenHeight),
 	}
-	ret.e, err = engine.NewEngine(ScreenWidth, ScreenHeight)
-	if err != nil {
-		return nil, err
+	ret.e = engine.NewEngine(ScreenWidth, ScreenHeight)
+	if ret.e == nil {
+		return nil
 	}
-	return ret, nil
+	return ret
 }
 
 // Main is the app entry point.

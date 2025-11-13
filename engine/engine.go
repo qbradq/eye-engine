@@ -3,12 +3,16 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/qbradq/eye-engine/data"
+	"github.com/qbradq/eye-engine/engine/types"
+	"github.com/qbradq/eye-engine/formats"
 )
 
 // Engine is the engine structure. Engines are self-contained.
@@ -29,10 +33,12 @@ type Engine struct {
 	fpsDelay    time.Duration // Delay between FPS updates
 	font        *Buffer       // Font image
 	pointPool   sync.Pool     // Pool of PointI2D slices
+	testModel   *types.Model  // Test model, temporary
+	testCamera  *Camera       // Test camera, temporary
 }
 
 // NewEngine returns a new Engine ready to use.
-func NewEngine(w, h int) (*Engine, error) {
+func NewEngine(w, h int) *Engine {
 	var err error
 	ret := &Engine{
 		ClearColor:  15,
@@ -40,25 +46,48 @@ func NewEngine(w, h int) (*Engine, error) {
 		lastFPSCalc: time.Now(),
 		pointPool: sync.Pool{
 			New: func() any {
-				b := make([]PointI2D, 0, 512)
+				b := make([]types.PointI2D, 0, 512)
 				return &b
 			},
+		},
+		testCamera: &Camera{
+			Position: types.Backward.Mul(2),
+			Forward:  types.Forward,
+			Up:       types.Up,
+			FOV:      90,
+			NearClip: 0.001,
+			FarClip:  1,
 		},
 	}
 	ret.Palette, err = LoadPalette("default")
 	if err != nil {
-		return nil, err
+		slog.Error("error loading default palette", "error", err)
+		return nil
 	}
 	r, err := data.FS.Open(filepath.Join("gfx", "font.png"))
 	if err != nil {
-		return nil, err
+		slog.Error("error opening default font", "error", err)
+		return nil
 	}
+	defer r.Close()
 	ret.font, err = DecodeBuffer(r, ret.Palette)
 	if err != nil {
-		return nil, err
+		slog.Error("error loading font into a buffer", "error", err)
+		return nil
+	}
+	r, err = data.FS.Open(filepath.Join("models", "suzanne.obj"))
+	if err != nil {
+		slog.Error("error opening test model", "error", err)
+		return nil
+	}
+	defer r.Close()
+	ret.testModel = formats.LoadModelFromOBJ(r)
+	if ret.testModel == nil {
+		slog.Error("error loading test model", "error", err)
+		return nil
 	}
 	ret.Resize(w, h)
-	return ret, nil
+	return ret
 }
 
 // Resize resizes the output buffer.
@@ -76,14 +105,16 @@ func (e *Engine) NextFrame(delta float32) {
 	startTime := time.Now()
 	// Prep the frame
 	e.Frame.Fill(e.ClearColor)
+	e.testCamera.Target = e.Frame
+	e.testCamera.Update()
 	// Rendering process
-	e.DrawLine(e.Frame, PointI2D{0, 0}, PointI2D{200, 239}, DefaultCyan)
-	e.DrawTriangle(
+	e.testCamera.SetModelMatrix(mgl32.Ident4())
+	e.DrawModel(
+		e.testModel,
 		e.Frame,
-		PointI2D{15, 60},
-		PointI2D{45, 120},
-		PointI2D{60, 90},
-		DefaultEvergreen,
+		DefaultLightBlue,
+		e.testCamera,
+		types.DrawModeLines,
 	)
 	// Advance FPS measurement
 	e.frameCount++
@@ -121,7 +152,7 @@ func (e *Engine) PrintString(dest *Buffer, s string, x, y int, c ColorIndex) {
 }
 
 // ReleasePointPoolSlice returns s to the available memory pool.
-func (e *Engine) ReleasePointPoolSlice(s []PointI2D) {
+func (e *Engine) ReleasePointPoolSlice(s []types.PointI2D) {
 	sPtr := &s
 	*sPtr = (*sPtr)[:0]
 	e.pointPool.Put(sPtr)
@@ -130,9 +161,9 @@ func (e *Engine) ReleasePointPoolSlice(s []PointI2D) {
 // Line returns a slice of ints representing the points along a line from p0 to
 // p1 in 2D space. When done with the returned slice, release it with
 // ReleasePointPoolSlice.
-func (e *Engine) Line(p0, p1 PointI2D) []PointI2D {
+func (e *Engine) Line(p0, p1 types.PointI2D) []types.PointI2D {
 	// Allocate return slice
-	retPtr, ok := e.pointPool.Get().(*[]PointI2D)
+	retPtr, ok := e.pointPool.Get().(*[]types.PointI2D)
 	if !ok {
 		panic(errors.New("e.pointPool.Get() did not return *[]PointI2D"))
 	}
@@ -188,10 +219,10 @@ func (e *Engine) Line(p0, p1 PointI2D) []PointI2D {
 }
 
 // DrawLine draws a line on buf from p0 to p1 using color c.
-func (e *Engine) DrawLine(buf *Buffer, p0, p1 PointI2D, c ColorIndex) {
+func (e *Engine) DrawLine(buf *Buffer, p0, p1 types.PointI2D, c ColorIndex) {
 	points := e.Line(p0, p1)
 	for _, p := range points {
-		buf.Pixels[p[1]*buf.Width+p[0]] = c
+		buf.SetPixel(p[0], p[1], c)
 	}
 	e.ReleasePointPoolSlice(points)
 }
@@ -199,15 +230,15 @@ func (e *Engine) DrawLine(buf *Buffer, p0, p1 PointI2D, c ColorIndex) {
 // TriangleScanLines returns a slice of an even number of points. For each pair
 // of points, they specify the left and right limits of a scan line contained
 // within the triangle.
-func (e *Engine) TriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
+func (e *Engine) TriangleScanLines(p0, p1, p2 types.PointI2D) []types.PointI2D {
 	// Allocate return slice
-	retPtr, ok := e.pointPool.Get().(*[]PointI2D)
+	retPtr, ok := e.pointPool.Get().(*[]types.PointI2D)
 	if !ok {
 		panic(errors.New("e.pointPool.Get() did not return *[]PointI2D"))
 	}
 	ret := *retPtr
 	// Sort points top to bottom
-	p := []PointI2D{p0, p1, p2}
+	p := []types.PointI2D{p0, p1, p2}
 	sort.SliceStable(p, func(i, j int) bool {
 		return p[i][1] < p[j][1]
 	})
@@ -228,7 +259,7 @@ func (e *Engine) TriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
 		rSlope = s1
 	}
 	for y := p0[1]; y < p1[1]; y++ {
-		ret = append(ret, PointI2D{int(xLeft), y}, PointI2D{int(xRight), y})
+		ret = append(ret, types.PointI2D{int(xLeft), y}, types.PointI2D{int(xRight), y})
 		xLeft += lSlope
 		xRight += rSlope
 	}
@@ -239,7 +270,7 @@ func (e *Engine) TriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
 		lSlope = s0
 	}
 	for y := p1[1]; y <= p2[1]; y++ {
-		ret = append(ret, PointI2D{int(xLeft), y}, PointI2D{int(xRight), y})
+		ret = append(ret, types.PointI2D{int(xLeft), y}, types.PointI2D{int(xRight), y})
 		xLeft += lSlope
 		xRight += rSlope
 	}
@@ -247,14 +278,46 @@ func (e *Engine) TriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
 }
 
 // DrawTriangle draws triangle p0, p1, p2 on buf using color c.
-func (e *Engine) DrawTriangle(buf *Buffer, p0, p1, p2 PointI2D, c ColorIndex) {
+func (e *Engine) DrawTriangle(buf *Buffer, p0, p1, p2 types.PointI2D, c ColorIndex) {
 	points := e.TriangleScanLines(p0, p1, p2)
 	for i := 0; i < len(points); i += 2 {
 		pl := points[i+0]
 		pr := points[i+1]
 		for x := pl[0]; x <= pr[0]; x++ {
-			buf.Pixels[pl[1]*buf.Width+x] = c
+			buf.SetPixel(pl[1], x, c)
 		}
 	}
 	e.ReleasePointPoolSlice(points)
+}
+
+// DrawModel draws a model m on buf using color c.
+func (e *Engine) DrawModel(m *types.Model, buf *Buffer, c ColorIndex, cam *Camera, mode types.DrawMode) {
+	// Draw points
+	switch mode {
+	case types.DrawModePoints:
+		for i := range m.Faces {
+			for j := range m.Faces[i].Vertexes {
+				v := m.Faces[i].Vertexes[j].Position
+				sv := cam.Transform(v)
+				buf.SetPixel(int(sv[0]), int(sv[1]), c)
+			}
+		}
+	case types.DrawModeLines:
+		for i := range m.Faces {
+			for j := range len(m.Faces[i].Vertexes) - 1 {
+				p0 := m.Faces[i].Vertexes[j+0].Position
+				p1 := m.Faces[i].Vertexes[j+1].Position
+				s0 := cam.Transform(p0)
+				s1 := cam.Transform(p1)
+				e.DrawLine(
+					buf,
+					types.PointI2D{int(s0[0]), int(s0[1])},
+					types.PointI2D{int(s1[0]), int(s1[1])},
+					c,
+				)
+			}
+		}
+	default:
+		slog.Error("invalid draw mode", "mode", mode)
+	}
 }
