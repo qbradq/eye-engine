@@ -1,4 +1,4 @@
-package engine
+package types
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 type Buffer struct {
 	Width   int          // Width of the buffer in pixels
 	Height  int          // Height of the buffer in pixels
+	Bounds  RectI2D      // Bounds of the buffer
 	Pixels  []ColorIndex // Pixel buffer
 	Palette *Palette     // Palette used by the buffer
 }
@@ -21,6 +22,7 @@ func NewBuffer(w, h int, p *Palette) *Buffer {
 	ret := &Buffer{
 		Width:   w,
 		Height:  h,
+		Bounds:  RectI2D{0, 0, w, h},
 		Pixels:  make([]ColorIndex, w*h),
 		Palette: p,
 	}

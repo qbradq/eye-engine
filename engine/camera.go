@@ -1,20 +1,17 @@
 package engine
 
 import (
-	"math"
-
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/qbradq/eye-engine/engine/types"
 )
 
 // Camera represents a point camera in 3D space.
 type Camera struct {
-	Position mgl32.Vec3 // Position of the camera
-	Forward  mgl32.Vec3 // Normalized forward vector
-	Up       mgl32.Vec3 // Up vector for the camera
-	FOV      float32    // Field of View in degrees
-	NearClip float32    // Near clipping plane distance
-	FarClip  float32    // Far clipping  plane distance
-	Target   *Buffer    // Buffer we are rendering onto
+	types.Entity
+	FOV      float32       // Field of View in degrees
+	NearClip float32       // Near clipping plane distance
+	FarClip  float32       // Far clipping  plane distance
+	Target   *types.Buffer // Buffer we are rendering onto
 
 	m   mgl32.Mat4 // Model matrix
 	v   mgl32.Mat4 // View matrix
@@ -38,9 +35,11 @@ func (c *Camera) SetModelMatrix(m mgl32.Mat4) {
 
 // View returns the view matrix.
 func (c *Camera) View() mgl32.Mat4 {
+	t := c.Position.Add(c.Forward)
 	return mgl32.LookAt(
 		c.Position[0], c.Position[1], c.Position[2],
-		c.Forward[0], c.Forward[1], c.Forward[2],
+		// c.Forward[0], c.Forward[1], c.Forward[2],
+		t[0], t[1], t[2],
 		c.Up[0], c.Up[1], c.Up[2],
 	)
 }
@@ -48,7 +47,7 @@ func (c *Camera) View() mgl32.Mat4 {
 // Projection returns the projection matrix for the given buffer.
 func (c *Camera) Projection() mgl32.Mat4 {
 	return mgl32.Perspective(
-		c.FOV*(float32(math.Pi)/180.0),
+		mgl32.DegToRad(c.FOV),
 		float32(c.Target.Width)/float32(c.Target.Height),
 		c.NearClip,
 		c.FarClip,

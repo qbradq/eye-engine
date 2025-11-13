@@ -4,9 +4,11 @@
     "Ebitengine",
     "ebitenutil",
     "Grayscale",
+    "Homog",
     "mathgl",
     "MSPF",
     "qbradq",
+    "Unclipped",
     "verts"
   ]
 }

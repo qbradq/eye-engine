@@ -7,7 +7,7 @@ import (
 	"image/png"
 	"os"
 
-	"github.com/qbradq/eye-engine/engine"
+	"github.com/qbradq/eye-engine/engine/types"
 )
 
 func main() {
@@ -28,7 +28,7 @@ func main() {
 		*outputName = *paletteName + ".png"
 	}
 	// Load the palette
-	p, err := engine.LoadPalette(*paletteName)
+	p, err := types.LoadPalette(*paletteName)
 	if err != nil {
 		panic(err)
 	}

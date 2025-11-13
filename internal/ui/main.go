@@ -65,6 +65,46 @@ func (m *Main) Layout(w, h int) (int, int) {
 
 // Update is called for input and physics updates.
 func (m *Main) Update() error {
+	// Handle keyboard rotation
+	keyTurnSpeed := float32(360.0 * 1 / 60.0)
+	if ebiten.IsKeyPressed(ebiten.KeyQ) {
+		m.e.Camera.Rotate(keyTurnSpeed)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyE) {
+		m.e.Camera.Rotate(-keyTurnSpeed)
+	}
+	// Handle mouse look
+	// ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+	// mouseLookSpeed := float32(360.0 / 60.0)
+	// var pos types.PointI2D
+	// pos[0], pos[1] = ebiten.CursorPosition()
+	// center := types.PointI2D{
+	// 	ScreenWidth / 2,
+	// 	ScreenHeight / 2,
+	// }
+	// dci := types.PointI2D{
+	// 	pos[0] - center[0],
+	// 	pos[1] - center[1],
+	// }
+	// dcf := mgl32.Vec2{
+	// 	float32(dci[0]) / float32(ScreenWidth),
+	// 	float32(dci[1]) / float32(ScreenWidth),
+	// }
+	// m.e.Camera.Rotate(dcf[0] * mouseLookSpeed)
+	// Handle movement
+	moveSpeed := float32(1.0 / 60.0)
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
+		m.e.Camera.MoveForward(moveSpeed)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyS) {
+		m.e.Camera.MoveBackward(moveSpeed)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
+		m.e.Camera.StrafeRight(moveSpeed)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		m.e.Camera.StrafeLeft(moveSpeed)
+	}
 	return nil
 }
 
