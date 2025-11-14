@@ -27,6 +27,7 @@ type DrawMode uint8
 const (
 	DrawModePoints DrawMode = iota
 	DrawModeLines
+	DrawModeFlat
 )
 
 // PointI2D represents a point in 2D space with integers (x, y)

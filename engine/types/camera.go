@@ -1,17 +1,18 @@
-package engine
+package types
 
 import (
+	"log/slog"
+
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/qbradq/eye-engine/engine/types"
 )
 
 // Camera represents a point camera in 3D space.
 type Camera struct {
-	types.Entity
-	FOV      float32       // Field of View in degrees
-	NearClip float32       // Near clipping plane distance
-	FarClip  float32       // Far clipping  plane distance
-	Target   *types.Buffer // Buffer we are rendering onto
+	Entity
+	FOV      float32 // Field of View in degrees
+	NearClip float32 // Near clipping plane distance
+	FarClip  float32 // Far clipping  plane distance
+	Target   *Buffer // Buffer we are rendering onto
 
 	m   mgl32.Mat4 // Model matrix
 	v   mgl32.Mat4 // View matrix
@@ -64,5 +65,57 @@ func (c *Camera) Transform(p mgl32.Vec3) mgl32.Vec3 {
 		((di[0] + 1) / 2) * float32(c.Target.Width),
 		float32(c.Target.Height) - ((di[1]+1)/2)*float32(c.Target.Height),
 		di[2],
+	}
+}
+
+// DrawPoint draws a 3D point onto the target using the color.
+func (c *Camera) DrawPoint(p *Vertex, color ColorIndex) {
+	sv := c.Transform(p.Position)
+	c.Target.SetPixel(int(sv[0]), int(sv[1]), color)
+}
+
+// DrawLineLoop draws a line loop in 3D space onto the target using the color.
+func (c *Camera) DrawLineLoop(verts []Vertex, color ColorIndex) {
+	points := pointI2DPool.Get()
+	for i := range verts {
+		sv := c.Transform(verts[i].Position)
+		points = append(points, PointI2D{int(sv[0]), int(sv[1])})
+	}
+	c.Target.DrawLineLoop(points, color)
+	pointI2DPool.Release(points)
+}
+
+// DrawModel draws a model m on the camera's target.
+var junknstuff int = -1
+
+func (c *Camera) DrawModel(m *Model, color ColorIndex, mode DrawMode) {
+	// Draw points
+	switch mode {
+	case DrawModePoints:
+		for i := range m.Faces {
+			for j := range m.Faces[i].Vertexes {
+				c.DrawPoint(&m.Faces[i].Vertexes[j], color)
+			}
+		}
+	case DrawModeLines:
+		for i := range m.Faces {
+			c.DrawLineLoop(m.Faces[i].Vertexes, color)
+		}
+	case DrawModeFlat:
+		buf := pointI2DPool.Get()
+		for i := range m.Faces {
+			if i != junknstuff {
+				// continue
+			}
+			junknstuff++
+			for _, v := range m.Faces[i].Vertexes {
+				f3 := c.Transform(v.Position)
+				buf = append(buf, PointI2D{int(f3[0]), int(f3[1])})
+			}
+			c.Target.DrawConvex(buf, color)
+		}
+		pointI2DPool.Release(buf)
+	default:
+		slog.Error("invalid draw mode", "mode", mode)
 	}
 }

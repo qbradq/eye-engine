@@ -148,3 +148,34 @@ func (b *Buffer) DrawMask(src *Buffer, dx, dy, sx, sy, w, h int, p ColorIndex) {
 		}
 	}
 }
+
+// DrawLine draws a line from p0 to p1 using color c.
+func (b *Buffer) DrawLine(p0, p1 PointI2D, c ColorIndex) {
+	points := Line(p0, p1, b.Bounds)
+	for _, p := range points {
+		b.SetPixel(p[0], p[1], c)
+	}
+	pointI2DPool.Release(points)
+}
+
+// DrawLineLoop draws a line loop from p0 to pN and back to p0 using color c.
+func (b *Buffer) DrawLineLoop(points []PointI2D, c ColorIndex) {
+	p0 := points[len(points)-1]
+	for _, p1 := range points {
+		b.DrawLine(p0, p1, c)
+		p0 = p1
+	}
+}
+
+// DrawConvex draws the convex polygon on b using color c.
+func (b *Buffer) DrawConvex(polygon []PointI2D, c ColorIndex) {
+	points := PolygonScanLines(polygon, b.Bounds)
+	for i := 0; i < len(points); i += 2 {
+		pl := points[i+0]
+		pr := points[i+1]
+		for x := pl[0]; x <= pr[0]; x++ {
+			b.SetPixel(x, pl[1], c)
+		}
+	}
+	pointI2DPool.Release(points)
+}
