@@ -1,18 +1,19 @@
-package types
+package engine
 
 import (
 	"log/slog"
 
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/qbradq/eye-engine/engine/types"
 )
 
 // Camera represents a point camera in 3D space.
 type Camera struct {
-	Entity
-	FOV      float32 // Field of View in degrees
-	NearClip float32 // Near clipping plane distance
-	FarClip  float32 // Far clipping  plane distance
-	Target   *Buffer // Buffer we are rendering onto
+	types.Entity
+	FOV      float32       // Field of View in degrees
+	NearClip float32       // Near clipping plane distance
+	FarClip  float32       // Far clipping  plane distance
+	Target   *types.Buffer // Buffer we are rendering onto
 
 	m   mgl32.Mat4 // Model matrix
 	v   mgl32.Mat4 // View matrix
@@ -68,8 +69,17 @@ func (c *Camera) Transform(p mgl32.Vec3) mgl32.Vec3 {
 	}
 }
 
+// TransformToScreen returns the screen point for the given 3D position.
+func (c *Camera) TransformToScreen(p mgl32.Vec3) types.PointI2D {
+	p = c.Transform(p)
+	return types.PointI2D{
+		int(p[0]),
+		int(p[1]),
+	}
+}
+
 // DrawPoint draws a slice of 3D points onto the target using the color.
-func (c *Camera) DrawPoints(verts []Vertex, color ColorIndex) {
+func (c *Camera) DrawPoints(verts []types.Vertex, color types.ColorIndex) {
 	for i := range verts {
 		sv := c.Transform(verts[i].Position)
 		c.Target.SetPixel(int(sv[0]), int(sv[1]), color)
@@ -77,32 +87,32 @@ func (c *Camera) DrawPoints(verts []Vertex, color ColorIndex) {
 }
 
 // DrawLineLoop draws a line loop in 3D space onto the target using the color.
-func (c *Camera) DrawLineLoop(verts []Vertex, color ColorIndex) {
-	points := pointI2DPool.Get()
+func (c *Camera) DrawLineLoop(verts []types.Vertex, color types.ColorIndex) {
+	points := types.PointI2DPool.Get()
 	for i := range verts {
 		sv := c.Transform(verts[i].Position)
-		points = append(points, PointI2D{int(sv[0]), int(sv[1])})
+		points = append(points, types.PointI2D{int(sv[0]), int(sv[1])})
 	}
 	c.Target.DrawLineLoop(points, color)
-	pointI2DPool.Release(points)
+	types.PointI2DPool.Release(points)
 }
 
 // DrawTriangle draws a triangle in 3D space onto the target using the color.
-func (c *Camera) DrawTriangle(verts []Vertex, color ColorIndex) {
-	var buf [3]PointI2D
-	buf[0] = ScreenSpaceToPointI2D(verts[0].Position)
-	buf[1] = ScreenSpaceToPointI2D(verts[1].Position)
-	buf[2] = ScreenSpaceToPointI2D(verts[2].Position)
+func (c *Camera) DrawTriangle(verts []types.Vertex, color types.ColorIndex) {
+	var buf [3]types.PointI2D
+	buf[0] = c.TransformToScreen(verts[0].Position)
+	buf[1] = c.TransformToScreen(verts[1].Position)
+	buf[2] = c.TransformToScreen(verts[2].Position)
 	c.Target.DrawTriangle(buf[:], color)
 }
 
 // DrawModel draws the model onto the target using the color and draw mode.
-func (c *Camera) DrawModel(m *Model, color ColorIndex, mode DrawMode) {
+func (c *Camera) DrawModel(m *types.Model, color types.ColorIndex, mode types.DrawMode) {
 	// Prep a point buffer if needed
-	var buf []PointI2D
-	if mode == DrawModeFlat {
-		buf = pointI2DPool.Get()
-		defer pointI2DPool.Release(buf)
+	var buf []types.PointI2D
+	if mode == types.DrawModeFlat {
+		buf = types.PointI2DPool.Get()
+		defer types.PointI2DPool.Release(buf)
 	}
 	// Draw all faces of the model
 	for i := range m.Faces {
@@ -112,14 +122,15 @@ func (c *Camera) DrawModel(m *Model, color ColorIndex, mode DrawMode) {
 		}
 		// Draw
 		switch mode {
-		case DrawModePoints:
+		case types.DrawModePoints:
 			c.DrawPoints(m.Faces[i].Vertexes[:], color)
-		case DrawModeLines:
+		case types.DrawModeLines:
 			c.DrawLineLoop(m.Faces[i].Vertexes[:], color)
-		case DrawModeFlat:
+		case types.DrawModeFlat:
 			c.DrawTriangle(m.Faces[i].Vertexes[:], color)
 		default:
 			slog.Error("invalid draw mode", "mode", mode)
 		}
+		// color = (color + 1) % 16
 	}
 }

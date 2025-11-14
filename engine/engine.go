@@ -19,7 +19,7 @@ type Engine struct {
 	Palette    *types.Palette   // Engine palette
 	FPS        float32          // Current FPS average
 	MSPF       float32          // Current Milliseconds per Frame average
-	Camera      *types.Camera // Camera for the main 3D viewport
+	Camera     *Camera          // Camera for the main 3D viewport
 
 	w           int           // Frame width
 	h           int           // Frame height
@@ -40,7 +40,7 @@ func NewEngine(w, h int) *Engine {
 		ClearColor:  15,
 		fpsDelay:    time.Millisecond * 500,
 		lastFPSCalc: time.Now(),
-		Camera: &types.Camera{
+		Camera: &Camera{
 			Entity: types.Entity{
 				Position: types.Backward.Mul(2),
 				Forward:  types.Forward,
@@ -67,8 +67,8 @@ func NewEngine(w, h int) *Engine {
 		slog.Error("error loading font into a buffer", "error", err)
 		return nil
 	}
-	// r, err = data.FS.Open(filepath.Join("models", "suzanne.obj"))
-	r, err = data.FS.Open(filepath.Join("models", "test.obj"))
+	r, err = data.FS.Open(filepath.Join("models", "suzanne.obj"))
+	// r, err = data.FS.Open(filepath.Join("models", "test.obj"))
 	if err != nil {
 		slog.Error("error opening test model", "error", err)
 		return nil
@@ -105,8 +105,16 @@ func (e *Engine) NextFrame(delta float32) {
 	e.Camera.DrawModel(
 		e.testModel,
 		types.DefaultLightBlue,
-		types.DrawModePoints,
+		types.DrawModeFlat,
 	)
+	// e.Frame.DrawTriangle(
+	// 	[]types.PointI2D{
+	// 		{189, 90},
+	// 		{130, 90},
+	// 		{189, 149},
+	// 	},
+	// 	types.DefaultOrange,
+	// )
 	// Advance FPS measurement
 	e.frameCount++
 	endTime := time.Now()

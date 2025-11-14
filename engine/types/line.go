@@ -66,7 +66,7 @@ func Line(p0, p1 PointI2D, r RectI2D) []PointI2D {
 // line from p0 to p1 in 2D space. When done with the returned slice, release it
 // with ReleasePointI2DPoolSlice.
 func UnclippedLine(p0, p1 PointI2D) []PointI2D {
-	ret := pointI2DPool.Get()
+	ret := PointI2DPool.Get()
 	// Setup stepping
 	dx := p1[0] - p0[0]
 	dy := p1[1] - p0[1]

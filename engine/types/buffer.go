@@ -155,7 +155,7 @@ func (b *Buffer) DrawLine(p0, p1 PointI2D, c ColorIndex) {
 	for _, p := range points {
 		b.SetPixel(p[0], p[1], c)
 	}
-	pointI2DPool.Release(points)
+	PointI2DPool.Release(points)
 }
 
 // DrawLineLoop draws a line loop from p0 to pN and back to p0 using color c.
@@ -177,5 +177,5 @@ func (b *Buffer) DrawTriangle(p []PointI2D, c ColorIndex) {
 			b.SetPixel(x, pl[1], c)
 		}
 	}
-	pointI2DPool.Release(points)
+	PointI2DPool.Release(points)
 }
