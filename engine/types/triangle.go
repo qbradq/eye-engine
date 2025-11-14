@@ -2,7 +2,8 @@ package types
 
 import (
 	"fmt"
-	"sort"
+
+	"github.com/qbradq/eye-engine/internal/util"
 )
 
 // ClipPolygonToPlane appends the points of the polygon in to out clipped to the
@@ -145,37 +146,69 @@ func PolygonScanLines(polygon []PointI2D, r RectI2D) []PointI2D {
 	return ret
 }
 
-// UnboundedTriangleScanLines returns a slice of an even number of points. For
-// each pair of points, they specify the left and right limits of a scan line
-// contained within the triangle. When done with the returned slice, pass it to
-// ReleasePointI2DPoolSlice() to release it.
-func UnboundedTriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
+// TriangleScanLines returns a slice of an even number of points. For each pair
+// of points, they specify the left and right limits of a scan line contained
+// within the triangle. All scan lines are clipped to r. When done with the
+// returned slice, pass it to ReleasePointI2DPoolSlice() to release it.
+func TriangleScanLines(p []PointI2D, r RectI2D) []PointI2D {
 	ret := pointI2DPool.Get()
-	// Sort points top to bottom
-	p := []PointI2D{p0, p1, p2}
-	sort.SliceStable(p, func(i, j int) bool {
-		return p[i][1] < p[j][1]
-	})
-	p0 = p[0]
-	p1 = p[1]
-	p2 = p[2]
-	// Setup the interpolation loops
-	s0 := float32(p2[0]-p1[0]) / float32(p2[1]-p1[1])
-	s1 := float32(p1[0]-p0[0]) / float32(p1[1]-p0[1])
-	s2 := float32(p2[0]-p0[0]) / float32(p2[1]-p0[1])
-	xLeft := float32(p0[0])
-	xRight := float32(p0[0])
-	// Top interpolation loop
+	rl := r[0]
+	rt := r[1]
+	rr := r[0] + r[2] - 1
+	rb := r[1] + r[3] - 1
+	// Unrolled insertion sort, n=3
+	if p[0][1] > p[1][1] {
+		p[0], p[1] = p[1], p[0]
+	}
+	if p[1][1] > p[2][1] {
+		p[1], p[2] = p[2], p[1]
+		if p[0][1] > p[1][1] {
+			p[0], p[1] = p[1], p[0]
+		}
+	}
+	// Calculate inverse slopes
+	s0 := float32(p[2][0]-p[1][0]) / float32(p[2][1]-p[1][1])
+	s1 := float32(p[1][0]-p[0][0]) / float32(p[1][1]-p[0][1])
+	s2 := float32(p[2][0]-p[0][0]) / float32(p[2][1]-p[0][1])
+	xLeft := float32(p[0][0])
+	xRight := float32(p[0][0])
+	// Interpolation loop setup
 	lSlope := s1
 	rSlope := s2
 	if s1 > s2 {
 		lSlope = s2
 		rSlope = s1
 	}
-	for y := p0[1]; y < p1[1]; y++ {
-		ret = append(ret, PointI2D{int(xLeft), y}, PointI2D{int(xRight), y})
+	// Clip vertical
+	tt := p[0][1]
+	tb := p[2][1]
+	yMin := util.MaxInt(rt, tt)
+	yMax := util.MinInt(rb, tb)
+	if yMin > tt {
+		xLeft += lSlope * float32(yMin-tt)
+		xRight += rSlope * float32(yMin-tt)
+	}
+	// Trivial discard case
+	if tb < yMin || tt > yMax {
+		return nil
+	}
+	// Top interpolation loop
+	yTopLoopEnd := util.MinInt(p[1][1], yMax)
+	for y := yMin; y < yTopLoopEnd; y++ {
+		// Trivial discard case
+		l := int(xLeft)
+		r := int(xRight)
 		xLeft += lSlope
 		xRight += rSlope
+		if r < rl || l > rr {
+			continue
+		}
+		// Clip horizontal
+		ret = append(
+			ret,
+			PointI2D{util.MaxInt(l, rl), y},
+			PointI2D{util.MinInt(r, rr), y},
+		)
 	}
 	// Bottom interpolation loop
 	if lSlope == s2 {
@@ -183,10 +216,22 @@ func UnboundedTriangleScanLines(p0, p1, p2 PointI2D) []PointI2D {
 	} else {
 		lSlope = s0
 	}
-	for y := p1[1]; y <= p2[1]; y++ {
-		ret = append(ret, PointI2D{int(xLeft), y}, PointI2D{int(xRight), y})
+	yBottomStart := util.MaxInt(p[1][1], yMin)
+	for y := yBottomStart; y <= yMax; y++ {
+		// Trivial discard case
+		l := int(xLeft)
+		r := int(xRight)
+		if r < rl || l > rr {
+			continue
+		}
 		xLeft += lSlope
 		xRight += rSlope
+		// Clip horizontal
+		ret = append(
+			ret,
+			PointI2D{util.MaxInt(l, rl), y},
+			PointI2D{util.MinInt(r, rr), y},
+		)
 	}
 	return ret
 }

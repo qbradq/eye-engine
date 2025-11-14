@@ -68,10 +68,12 @@ func (c *Camera) Transform(p mgl32.Vec3) mgl32.Vec3 {
 	}
 }
 
-// DrawPoint draws a 3D point onto the target using the color.
-func (c *Camera) DrawPoint(p *Vertex, color ColorIndex) {
-	sv := c.Transform(p.Position)
-	c.Target.SetPixel(int(sv[0]), int(sv[1]), color)
+// DrawPoint draws a slice of 3D points onto the target using the color.
+func (c *Camera) DrawPoints(verts []Vertex, color ColorIndex) {
+	for i := range verts {
+		sv := c.Transform(verts[i].Position)
+		c.Target.SetPixel(int(sv[0]), int(sv[1]), color)
+	}
 }
 
 // DrawLineLoop draws a line loop in 3D space onto the target using the color.
@@ -85,37 +87,39 @@ func (c *Camera) DrawLineLoop(verts []Vertex, color ColorIndex) {
 	pointI2DPool.Release(points)
 }
 
-// DrawModel draws a model m on the camera's target.
-var junknstuff int = -1
+// DrawTriangle draws a triangle in 3D space onto the target using the color.
+func (c *Camera) DrawTriangle(verts []Vertex, color ColorIndex) {
+	var buf [3]PointI2D
+	buf[0] = ScreenSpaceToPointI2D(verts[0].Position)
+	buf[1] = ScreenSpaceToPointI2D(verts[1].Position)
+	buf[2] = ScreenSpaceToPointI2D(verts[2].Position)
+	c.Target.DrawTriangle(buf[:], color)
+}
 
+// DrawModel draws the model onto the target using the color and draw mode.
 func (c *Camera) DrawModel(m *Model, color ColorIndex, mode DrawMode) {
-	// Draw points
-	switch mode {
-	case DrawModePoints:
-		for i := range m.Faces {
-			for j := range m.Faces[i].Vertexes {
-				c.DrawPoint(&m.Faces[i].Vertexes[j], color)
-			}
+	// Prep a point buffer if needed
+	var buf []PointI2D
+	if mode == DrawModeFlat {
+		buf = pointI2DPool.Get()
+		defer pointI2DPool.Release(buf)
+	}
+	// Draw all faces of the model
+	for i := range m.Faces {
+		// Skip back-facing polygons
+		if m.Faces[i].BackFacing(c.Position) {
+			continue
 		}
-	case DrawModeLines:
-		for i := range m.Faces {
-			c.DrawLineLoop(m.Faces[i].Vertexes, color)
+		// Draw
+		switch mode {
+		case DrawModePoints:
+			c.DrawPoints(m.Faces[i].Vertexes[:], color)
+		case DrawModeLines:
+			c.DrawLineLoop(m.Faces[i].Vertexes[:], color)
+		case DrawModeFlat:
+			c.DrawTriangle(m.Faces[i].Vertexes[:], color)
+		default:
+			slog.Error("invalid draw mode", "mode", mode)
 		}
-	case DrawModeFlat:
-		buf := pointI2DPool.Get()
-		for i := range m.Faces {
-			if i != junknstuff {
-				// continue
-			}
-			junknstuff++
-			for _, v := range m.Faces[i].Vertexes {
-				f3 := c.Transform(v.Position)
-				buf = append(buf, PointI2D{int(f3[0]), int(f3[1])})
-			}
-			c.Target.DrawConvex(buf, color)
-		}
-		pointI2DPool.Release(buf)
-	default:
-		slog.Error("invalid draw mode", "mode", mode)
 	}
 }

@@ -58,32 +58,43 @@ type objModel struct {
 
 // ToModel returns a new engine.types.Model from this model.
 func (o *objModel) ToModel() *types.Model {
+	idx := func(i, l int) int {
+		if i == 0 {
+			return 0
+		}
+		if i > 0 {
+			return i - 1
+		}
+		return l + i
+	}
 	ret := &types.Model{}
 	for i := range o.f {
-		f := types.Face{}
-		for j := range o.f[i].v {
-			v := o.f[i].v[j]
-			n := o.f[i].n[j]
-			u := o.f[i].u[j]
-			var vv mgl32.Vec3
-			var nv mgl32.Vec3
-			var uv mgl32.Vec2
-			if v > 0 {
-				vv = o.v[v-1]
-			}
-			if n > 0 {
-				nv = o.n[n-1]
-			}
-			if u > 0 {
-				uv = o.u[u-1]
-			}
-			f.Vertexes = append(f.Vertexes, types.Vertex{
-				Position: vv,
-				Normal:   nv,
-				UV:       uv,
+		// Fan triangulation
+		f := o.f[i]
+		ia := 0
+		for j := 2; j < len(f.v); j++ {
+			ib := j - 1
+			ic := j - 0
+			ret.Faces = append(ret.Faces, types.Face{
+				Vertexes: [3]types.Vertex{
+					{
+						Position: o.v[idx(f.v[ia], len(o.v))],
+						Normal:   o.n[idx(f.n[ia], len(o.n))],
+						UV:       o.u[idx(f.u[ia], len(o.u))],
+					},
+					{
+						Position: o.v[idx(f.v[ib], len(o.v))],
+						Normal:   o.n[idx(f.n[ib], len(o.n))],
+						UV:       o.u[idx(f.u[ib], len(o.u))],
+					},
+					{
+						Position: o.v[idx(f.v[ic], len(o.v))],
+						Normal:   o.n[idx(f.n[ic], len(o.n))],
+						UV:       o.u[idx(f.u[ic], len(o.u))],
+					},
+				},
 			})
 		}
-		ret.Faces = append(ret.Faces, f)
 	}
 	return ret
 }
@@ -215,7 +226,9 @@ func LoadModelFromOBJ(r io.Reader) *types.Model {
 	if obj == nil {
 		return nil
 	}
-	return obj.ToModel()
+	ret := obj.ToModel()
+	ret.UpdateGeometry()
+	return ret
 }
 
 // NewModelFromData returns a new model constructed from data arrays.

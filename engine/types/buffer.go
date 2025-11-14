@@ -167,9 +167,9 @@ func (b *Buffer) DrawLineLoop(points []PointI2D, c ColorIndex) {
 	}
 }
 
-// DrawConvex draws the convex polygon on b using color c.
-func (b *Buffer) DrawConvex(polygon []PointI2D, c ColorIndex) {
-	points := PolygonScanLines(polygon, b.Bounds)
+// DrawTriangle draws the triangle p on b using color c.
+func (b *Buffer) DrawTriangle(p []PointI2D, c ColorIndex) {
+	points := TriangleScanLines(p, b.Bounds)
 	for i := 0; i < len(points); i += 2 {
 		pl := points[i+0]
 		pr := points[i+1]

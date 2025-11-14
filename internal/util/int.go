@@ -10,3 +10,19 @@ func BoundInt(v, min, max int) int {
 	}
 	return v
 }
+
+// MaxInt returns the maximum of l and r.
+func MaxInt(l, r int) int {
+	if l > r {
+		return l
+	}
+	return r
+}
+
+// MinInt returns the minimum of l and r.
+func MinInt(l, r int) int {
+	if l < r {
+		return l
+	}
+	return r
+}

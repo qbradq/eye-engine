@@ -9,7 +9,7 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/qbradq/eye-engine/data"
 	"github.com/qbradq/eye-engine/engine/types"
-	"github.com/qbradq/eye-engine/formats"
+	"github.com/qbradq/eye-engine/internal/formats"
 )
 
 // Engine is the engine structure. Engines are self-contained.
@@ -19,6 +19,7 @@ type Engine struct {
 	Palette    *types.Palette   // Engine palette
 	FPS        float32          // Current FPS average
 	MSPF       float32          // Current Milliseconds per Frame average
+	Camera      *types.Camera // Camera for the main 3D viewport
 
 	w           int           // Frame width
 	h           int           // Frame height
@@ -30,7 +31,6 @@ type Engine struct {
 	fpsDelay    time.Duration // Delay between FPS updates
 	font        *types.Buffer // Font image
 	testModel   *types.Model  // Test model, temporary
-	Camera      *types.Camera // Camera for the main 3D viewport
 }
 
 // NewEngine returns a new Engine ready to use.
@@ -67,6 +67,7 @@ func NewEngine(w, h int) *Engine {
 		slog.Error("error loading font into a buffer", "error", err)
 		return nil
 	}
+	// r, err = data.FS.Open(filepath.Join("models", "suzanne.obj"))
 	r, err = data.FS.Open(filepath.Join("models", "test.obj"))
 	if err != nil {
 		slog.Error("error opening test model", "error", err)
@@ -104,18 +105,8 @@ func (e *Engine) NextFrame(delta float32) {
 	e.Camera.DrawModel(
 		e.testModel,
 		types.DefaultLightBlue,
-		types.DrawModeLines,
+		types.DrawModePoints,
 	)
-	// e.Frame.DrawConvex(
-	// 	[]types.PointI2D{
-	// 		types.PointI2D{100, 100},
-	// 		types.PointI2D{150, 150},
-	// 		types.PointI2D{200, 200},
-	// 		types.PointI2D{300, 250},
-	// 		types.PointI2D{250, 100},
-	// 	},
-	// 	types.DefaultOrange,
-	// )
 	// Advance FPS measurement
 	e.frameCount++
 	endTime := time.Now()

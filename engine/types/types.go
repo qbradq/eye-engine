@@ -33,6 +33,14 @@ const (
 // PointI2D represents a point in 2D space with integers (x, y)
 type PointI2D [2]int
 
+// ScreenSpaceToPointI2D translates a 3D vector in screen space into a PointI2D.
+func ScreenSpaceToPointI2D(p mgl32.Vec3) PointI2D {
+	return PointI2D{
+		int(p[0]),
+		int(p[1]),
+	}
+}
+
 // RectI2D represents a 2D rectangular area with integers (x, y, w, h)
 type RectI2D [4]int
 
